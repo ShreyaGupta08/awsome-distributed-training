@@ -2,3 +2,6 @@ env_vars
 *.log
 __pycache__/
 *.pyc
+slurm/logs/
+slurm/*.out
+slurm/*.err

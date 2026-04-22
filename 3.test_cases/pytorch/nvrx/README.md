@@ -102,7 +102,7 @@ This downloads 100K samples (~227 MB) in about 20 seconds. Then add `--dataset_p
 ## Platform-Specific Instructions
 
 - **Amazon EKS**: See [kubernetes/README.md](kubernetes/README.md)
-- **Slurm**: Coming soon
+- **Slurm**: See [slurm/README.md](slurm/README.md)
 
 ## Source Files
 
