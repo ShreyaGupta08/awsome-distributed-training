@@ -6,13 +6,18 @@ This guide walks you through running the NVRx resiliency experiments on a Slurm 
 
 ### 0.1. Slurm Cluster
 
-You need a Slurm cluster with GPU nodes and shared storage. Instructions for creating a cluster can be found in [1.architectures](../../../../1.architectures).
+You need a Slurm cluster with GPU nodes and shared storage. Two supported paths:
+
+- **AWS ParallelCluster**: use the vanilla template at [1.architectures/2.aws-parallelcluster/cluster-templates/cluster-vanilla.yaml](../../../../1.architectures/2.aws-parallelcluster/cluster-templates/cluster-vanilla.yaml) — it already installs `enroot` + `pyxis` and AWS OFI NCCL via `OnNodeConfigured` post-install scripts, and mounts FSx for Lustre at `/fsx`.
+- **SageMaker HyperPod Slurm**: see [1.architectures/5.sagemaker-hyperpod](../../../../1.architectures/5.sagemaker-hyperpod).
 
 Your cluster must have:
 - GPU nodes (g5, p4de, or p5 instances)
 - [pyxis](https://github.com/NVIDIA/pyxis) with [enroot](https://github.com/NVIDIA/enroot) for container support
 - EFA fabric (for multi-node training on p4de/p5)
-- A shared filesystem (FSx for Lustre, FSx for OpenZFS, or NFS) accessible from all compute nodes
+- A shared filesystem (FSx for Lustre recommended; FSx for OpenZFS or NFS also work) accessible from all compute nodes
+
+> **ParallelCluster defaults**: FSx Lustre mounts at `/fsx` and the default username is `ubuntu`, so `SHARED_STORAGE` defaults to `/fsx/ubuntu`. Override with `export SHARED_STORAGE=/fsx/$USER` (or any path you prefer) before `sbatch`.
 
 ### 0.2. Clone the Repository onto Shared Storage
 

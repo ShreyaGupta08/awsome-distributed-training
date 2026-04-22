@@ -3,9 +3,10 @@
 NVRx Local Checkpointing Test Script
 
 Compares NVRx local checkpointing vs standard torch.save for FSDP/DDP
-training on EKS.  NVRx LocalCheckpointManager writes checkpoints to
-node-local storage (emptyDir backed by SSD/tmpfs) with tensor-aware
-serialization, avoiding shared-filesystem bottlenecks.
+training.  Works on EKS (Kubernetes) or Slurm.  NVRx LocalCheckpointManager
+writes checkpoints to node-local storage (emptyDir/tmpfs on K8s, /tmp or
+instance-store on Slurm) with tensor-aware serialization, avoiding
+shared-filesystem bottlenecks.
 
 Two checkpoint modes:
   --use_local_checkpoint    NVRx LocalCheckpointManager (node-local, tensor-aware)

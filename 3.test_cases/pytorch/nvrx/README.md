@@ -11,7 +11,7 @@ This test case benchmarks [NVIDIA Resiliency Extension (NVRx)](https://github.co
 | ft_launcher (In-Job Restart) | `src/train_ft_launcher.py` | Automatic fault detection and worker respawn | GPT-2 on g5; LLaMA-3.1-8B on p5 |
 | ft_launcher + In-Process | `src/train_ft_launcher.py --inprocess` | Combined: in-process for fast faults, ft_launcher for hard faults | GPT-2 on g5 |
 | Local Checkpointing | `src/train_local_ckpt.py` | Node-local checkpoint storage for faster writes | GPT-2 on g5 |
-| Baseline (K8s restart) | `src/train_inprocess.py --disable_nvrx_wrapper` | No NVRx -- relies on K8s container restart for comparison | GPT-2 on g5; LLaMA-3.1-8B on p4de, p5 |
+| Baseline (no NVRx) | `src/train_inprocess.py --disable_nvrx_wrapper` | No NVRx -- on EKS, relies on K8s container restart; on Slurm, the job fails on fault (or requeues via `sbatch --requeue`) | GPT-2 on g5; LLaMA-3.1-8B on p4de, p5 |
 
 > **Note:** Local checkpointing with NVRx `LocalCheckpointManager` has been tested with GPT-2 on g5 instances only. FSDP sharded state dicts (ShardedTensor) are not yet compatible with NVRx `BasicTensorAwareStateDict` on larger models.
 
@@ -43,9 +43,15 @@ Two injection modes are supported:
 
 ## Prerequisites
 
-To run these tests, you need a training cluster with GPU nodes and shared storage. Instructions for creating a cluster can be found in [1.architectures](../../../1.architectures), the [aws-do-eks](https://bit.ly/do-eks) project, or [EKS Blueprints](https://github.com/aws-ia/terraform-aws-eks-blueprints).
+To run these tests, you need a training cluster with GPU nodes and shared storage. Supported cluster types:
 
-## 1. Build Container Image
+- **Amazon EKS** (Kubernetes) — see [1.architectures/4.amazon-eks](../../../1.architectures/4.amazon-eks), [aws-do-eks](https://bit.ly/do-eks), or [EKS Blueprints](https://github.com/aws-ia/terraform-aws-eks-blueprints)
+- **AWS ParallelCluster** (Slurm) — see [1.architectures/2.aws-parallelcluster](../../../1.architectures/2.aws-parallelcluster); the vanilla template already installs `enroot` + `pyxis` via post-install scripts
+- **SageMaker HyperPod Slurm** — see [1.architectures/5.sagemaker-hyperpod](../../../1.architectures/5.sagemaker-hyperpod)
+
+Steps 1 and 2 below (container build + ECR push) are **EKS-only**. Slurm uses the NVIDIA NGC PyTorch container directly via `enroot`/`pyxis`, with NVRx installed inside the container at job start — jump to the [Slurm instructions](slurm/README.md) if that's your target.
+
+## 1. Build Container Image (EKS only)
 
 From the `nvrx/` directory, build a container image with PyTorch 2.9, NVRx 0.4.1, and the training scripts:
 
@@ -59,7 +65,7 @@ export REGISTRY=${ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
 docker build -f Dockerfile -t ${REGISTRY}/nvrx-fsdp-training:latest .
 ```
 
-## 2. Push Container Image to Amazon ECR
+## 2. Push Container Image to Amazon ECR (EKS only)
 
 ```bash
 # Create registry if needed
@@ -90,14 +96,16 @@ Training scripts support two dataset modes:
 
 **Option A: Stream from HuggingFace Hub (default)** -- No setup required. Works well for experiments without frequent restarts.
 
-**Option B: Pre-download to local storage (recommended for fault recovery experiments)** -- Eliminates HuggingFace API rate limiting (429 errors) during rapid restarts:
+**Option B: Pre-download to shared storage (recommended for fault recovery experiments)** -- Eliminates HuggingFace API rate limiting (429 errors) during rapid restarts:
 
 ```bash
-# Run inside the training container on your cluster
-python prepare_dataset.py --output_path /checkpoints/c4_subset --num_samples 100000
+# Run inside the training container on your cluster. The output path must live
+# on the filesystem mounted into training workers: /checkpoints on EKS (FSx PVC
+# mount) or $SHARED_STORAGE/c4_subset on Slurm (FSx for Lustre, NFS, etc.).
+python prepare_dataset.py --output_path <shared-path>/c4_subset --num_samples 100000
 ```
 
-This downloads 100K samples (~227 MB) in about 20 seconds. Then add `--dataset_path=/checkpoints/c4_subset` to the training script arguments. See the platform-specific README for detailed instructions on running this on your cluster.
+This downloads 100K samples (~227 MB) in about 20 seconds. Then add `--dataset_path=<shared-path>/c4_subset` to the training script arguments. See the platform-specific README for detailed instructions on running this on your cluster.
 
 ## Platform-Specific Instructions
 

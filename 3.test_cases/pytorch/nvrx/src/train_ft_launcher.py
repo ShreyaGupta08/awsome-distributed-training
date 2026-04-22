@@ -3,13 +3,14 @@
 NVRx ft_launcher In-Job Restart Test Script
 
 Demonstrates NVRx fault tolerance using ft_launcher for in-job restart
-on EKS with FSDP/DDP training.  Two modes are supported:
+with FSDP/DDP training.  Works on EKS (Kubernetes) or Slurm.  Two modes
+are supported:
 
   Default (in-job only):
       ft_launcher monitors worker heartbeats.  If a worker crashes or
       hangs, ft_launcher kills all workers and respawns them.  Recovery
       takes ~10-30 s (process respawn + checkpoint reload) but does NOT
-      involve Kubernetes container restarts.
+      involve Kubernetes container or Slurm job restarts.
 
   --inprocess (combined in-job + in-process):
       Adds NVRx inprocess.Wrapper on top of ft_launcher.  Soft faults
